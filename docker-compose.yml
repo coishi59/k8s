@@ -1,0 +1,41 @@
+version: '3'
+
+services: 
+
+  nginx-proxy:
+    image: jwilder/nginx-proxy
+    ports: 
+      - '80:80'
+      - '443:443'
+    volumes: 
+      - ./data/nginx/vhost.d:/etc/nginx/vhost.d
+      - /var/run/docker.sock:/tmp/docker.sock:ro
+    restart: always
+    networks: 
+      - nginx-net
+
+  web:
+    image: coishi59/notes-nodejs:v2.0
+    command: "node src/index.js"
+    ports: 
+      - "4000:4000"
+    depends_on: 
+      - "mongo"
+    networks: 
+      - nginx-net
+    environment: 
+      VIRTUAL_HOST: www.notesapp.com
+      VIRTUAL_PORT: 4000
+      
+  mongo:
+    image: "mongo"
+    ports: 
+      - "27017:27017"
+    volumes: 
+      - ./data-volume:/data/db
+    networks: 
+      - nginx-net
+
+networks: 
+  nginx-net:
+    driver: bridge
