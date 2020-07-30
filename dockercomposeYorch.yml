@@ -1,0 +1,90 @@
+version: "3"
+  
+services:
+  view:
+    image: jorgebee65/trebol-view:dominiossl
+    container_name: view
+    depends_on:
+      - core
+    ports:
+      - '5000:5000'
+    environment:
+      - VIRTUAL_HOST=mitrebolsitio.com 
+      - LETSENCRYPT_HOST=mitrebolsitio.com
+      - LETSENCRYPT_EMAIL=jorgebee65@hotmail.com
+      - SSL_POLICY=AWS-TLS-1-2-2017-01
+    networks:
+      default:
+        aliases:
+          - frontview
+  core:
+    image: jorgebee65/trebol-core:11
+    container_name: core
+    environment:
+      - SPRINGPROFILES=actuator
+      - APP_ALLOW_ORIGIN1=https://mitrebolsitio.com
+      - APP_ALLOW_ORIGIN2=http://localhost:3000
+      - SERVER_PORT=8443
+    depends_on:
+      - changodb
+    ports:
+      - "8443:8443"
+    networks:
+      default:
+       aliases:
+          - restapi
+  changodb:
+    image: mongo:4.0.8
+    container_name: changodb
+    ports:
+      - "27017:27017"
+    networks:
+      default:
+        aliases:
+          - changodb
+    volumes:
+      - mogo-volume:/data/db
+
+  nginx:
+    image: jwilder/nginx-proxy
+    restart: always
+    container_name: proxy
+    depends_on:
+      - view
+    ports:
+      - '80:80'
+      - '443:443'
+    volumes:
+      - /var/run/docker.sock:/tmp/docker.sock:ro
+      - certs:/etc/nginx/certs:ro
+      - vhost:/etc/nginx/vhost.d
+      - html:/usr/share/nginx/html
+    labels:
+      - com.github.jrcs.letsencrypt_nginx_proxy_companion.nginx_proxy
+    networks:
+      default:
+        aliases:
+          - proxy
+
+  letsencrypt:
+    image: jrcs/letsencrypt-nginx-proxy-companion
+    restart: always
+    container_name: letsenc
+    depends_on:
+      - nginx
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - certs:/etc/nginx/certs
+      - vhost:/etc/nginx/vhost.d
+      - html:/usr/share/nginx/html
+    networks:
+      default:
+        aliases:
+          - lets
+volumes:
+  certs:
+  vhost:
+  html:
+  mogo-volume:
+networks:
+  otrared:
