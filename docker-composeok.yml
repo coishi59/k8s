@@ -1,24 +1,63 @@
 version: '3'
-services:  
+
+services: 
+
   web:
-    image: notes-nodejs
-    build: .
+    image: coishi59/notes-nodejs:v2.0
     ports: 
       - "4000:4000"
     depends_on: 
       - "mongo"
+    networks: 
+      - nginx-net
+    environment:
+      - VIRTUAL_HOST=webnotesapp.site,www.webnotesapp.site 
+      - LETSENCRYPT_HOST=webnotesapp.site,www.webnotesapp.site 
+      - SSL_POLICY=AWS-TLS-1-2-2017-01
+      
   mongo:
-      image: "mongo"
-      ports: 
-          - "27017:27017"
-      volumes: 
-        - ./data-volume:/data/db
-  nginx:
-    build: ./nginx
-    image: mynginx
+    image: "mongo"
     ports: 
-      - "80:80"
-    links:
-      - web:notes-nodejs 
-volumes: 
+      - "27017:27017"
+    volumes: 
+      - ./data-volume:/data/db
+    networks: 
+      - nginx-net
+
+  nginx:
+    image: jwilder/nginx-proxy
+    restart: always
+    ports:
+      - '80:80'
+      - '443:443'
+    volumes:
+      - /var/run/docker.sock:/tmp/docker.sock:ro
+      - certs:/etc/nginx/certs:ro
+      - vhost:/etc/nginx/vhost.d
+      - html:/usr/share/nginx/html
+    labels:
+      - com.github.jrcs.letsencrypt_nginx_proxy_companion.nginx_proxy
+    networks:
+      - nginx-net
+
+  letsencrypt:
+    image: jrcs/letsencrypt-nginx-proxy-companion
+    restart: always
+    depends_on:
+      - nginx
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - certs:/etc/nginx/certs
+      - vhost:/etc/nginx/vhost.d
+      - html:/usr/share/nginx/html
+    networks: 
+      - nginx-net
+
+volumes:
+  certs:
+  vhost:
+  html:
   data-volume:
+networks: 
+  nginx-net:
+    driver: bridge
